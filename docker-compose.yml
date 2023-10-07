@@ -1,0 +1,12 @@
+version: "3"
+services:
+  mongodb:
+    image: mongo
+    restart: always
+    ports:
+      - "27017:27017"
+  insightful-grocery:
+    build: .
+    depends_on:
+      - mongodb
+    restart: always
