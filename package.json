@@ -7,7 +7,8 @@
     "start": "node build/index.js",
     "start:dev": "nodemon",
     "build": "tsc",
-    "test": "ava"
+    "test": "ava",
+    "commit": "cz"
   },
   "repository": {
     "type": "git",
@@ -39,6 +40,8 @@
     "@typescript-eslint/eslint-plugin": "^6.7.4",
     "@typescript-eslint/parser": "^6.7.4",
     "ava": "^5.3.1",
+    "commitizen": "^4.3.0",
+    "cz-conventional-changelog": "^3.3.0",
     "eslint": "^8.50.0",
     "mongodb-memory-server": "^8.16.0",
     "nodemon": "^3.0.1",
@@ -53,6 +56,11 @@
         "src/": "build/"
       },
       "compile": "tsc"
+    }
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
     }
   }
 }
