@@ -4,8 +4,9 @@ import { connect } from "mongoose";
 import yargs from "yargs";
 import jwt from "jsonwebtoken";
 
-import { nodeRouter } from "./node/router";
+import { StoreRouter } from "./store/router";
 import { Employee, Role } from "./employee/employee";
+import { employeeRouter } from "./employee/router";
 
 dotenv.config();
 
@@ -61,12 +62,6 @@ async function main() {
 
   api.use(express.json());
 
-  api.get("/ping", (req, res) => {
-    res.send("pong");
-  });
-
-  api.use("/node", nodeRouter());
-
   // global error handler
   api.use(
     (
@@ -83,20 +78,12 @@ async function main() {
     }
   );
 
-  api
-    .route("/employee")
-    .get((req, res) => {
-      res.sendStatus(200);
-    })
-    .post((req, res) => {
-      res.sendStatus(200);
-    })
-    .put((req, res) => {
-      res.sendStatus(200);
-    })
-    .delete((req, res) => {
-      res.sendStatus(200);
-    });
+  api.get("/ping", (req, res) => {
+    res.send("pong");
+  });
+
+  api.use("/nodes", new StoreRouter().router);
+  api.use("/employees", employeeRouter());
 
   api.listen(GROCERY_PORT, () => {
     console.log(`Grocery API listening on :${GROCERY_PORT}`);

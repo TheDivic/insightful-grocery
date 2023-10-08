@@ -1,16 +1,16 @@
 import { Schema, model } from "mongoose";
 
-interface INode {
+interface IStore {
   name: string;
   path: string;
 }
 
-const nodeSchema = new Schema<INode>({
+const storeSchema = new Schema<IStore>({
   name: { type: String, required: true },
   path: { type: String, required: true, index: true, unique: true },
 });
-nodeSchema.index({ path: "text" });
+storeSchema.index({ path: "text" });
 
-const Node = model<INode>("Node", nodeSchema);
+const Store = model<IStore>("Store", storeSchema);
 
-export { INode, Node };
+export { IStore, Store };
