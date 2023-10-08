@@ -1,0 +1,69 @@
+[
+  { "name": "Srbija", "path": "/srbija" },
+  { "name": "Vojvodina", "path": "/srbija/vojvodina" },
+  {
+    "name": "Severnobacki okrug",
+    "path": "/srbija/vojvodina/severnobacki-okrug"
+  },
+  {
+    "name": "Subotica",
+    "path": "/srbija/vojvodina/severnobacki-okrug/subotica"
+  },
+  {
+    "name": "Radnja 1",
+    "path": "/srbija/vojvodina/severnobacki-okrug/subotica/radnja-1"
+  },
+  {
+    "name": "Juznobacki okrug",
+    "path": "/srbija/vojvodina/juznobacki-okrug"
+  },
+  {
+    "name": "Novi Sad",
+    "path": "/srbija/vojvodina/juznobacki-okrug/novi-sad"
+  },
+  {
+    "name": "Detelinara",
+    "path": "/srbija/vojvodina/juznobacki-okrug/novi-sad/detelinara"
+  },
+  {
+    "name": "Radnja 2",
+    "path": "/srbija/vojvodina/juznobacki-okrug/novi-sad/detelinara/radnja-2"
+  },
+  {
+    "name": "Radnja 3",
+    "path": "/srbija/vojvodina/juznobacki-okrug/novi-sad/detelinara/radnja-3"
+  },
+  {
+    "name": "Liman",
+    "path": "/srbija/vojvodina/juznobacki-okrug/novi-sad/liman"
+  },
+  {
+    "name": "Radnja 4",
+    "path": "/srbija/vojvodina/juznobacki-okrug/novi-sad/liman/radnja-4"
+  },
+  {
+    "name": "Radnja 5",
+    "path": "/srbija/vojvodina/juznobacki-okrug/novi-sad/liman/radnja-5"
+  },
+
+  { "name": "Grad Beograd", "path": "/srbija/grad-beograd" },
+  { "name": "Novi Beograd", "path": "/srbija/grad-beograd/novi-beograd" },
+  { "name": "Bezanija", "path": "/srbija/grad-beograd/novi-beograd/bezanija" },
+  {
+    "name": "Radnja 6",
+    "path": "/srbija/grad-beograd/novi-beograd/bezanija/radnja-6"
+  },
+
+  { "name": "Vracar", "path": "/srbija/grad-beograd/vracar" },
+  { "name": "Neimar", "path": "/srbija/grad-beograd/vracar/neimar" },
+  { "name": "Radnja 7", "path": "/srbija/grad-beograd/vracar/neimar/radnja-7" },
+  { "name": "Crveni Krst", "path": "/srbija/grad-beograd/vracar/crveni-krst" },
+  {
+    "name": "Radnja 8",
+    "path": "/srbija/grad-beograd/vracar/crveni-krst/radnja-8"
+  },
+  {
+    "name": "Radnja 9",
+    "path": "/srbija/grad-beograd/vracar/crveni-krst/radnja-9"
+  }
+]

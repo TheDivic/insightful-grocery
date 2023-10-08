@@ -15,8 +15,8 @@ interface IEmployee {
 
 const employeeSchema = new Schema<IEmployee>({
   name: { type: String, required: true },
-  email: { type: String, required: true },
-  nodePath: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
+  nodePath: { type: String, required: true, index: "text" },
   role: { type: String, enum: Role, required: true },
 });
 
