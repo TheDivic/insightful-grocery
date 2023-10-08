@@ -9,7 +9,7 @@
     "build": "tsc",
     "test": "ava",
     "commit": "cz",
-    "seed": "seed --db-name grocery-stores test/fixtures"
+    "seed": "seed --db-name grocery-stores seed"
   },
   "repository": {
     "type": "git",
@@ -45,6 +45,7 @@
     "commitizen": "^4.3.0",
     "cz-conventional-changelog": "^3.3.0",
     "eslint": "^8.50.0",
+    "mongo-seeding": "^3.7.2",
     "mongo-seeding-cli": "^3.7.2",
     "mongodb-memory-server": "^8.16.0",
     "nodemon": "^3.0.1",

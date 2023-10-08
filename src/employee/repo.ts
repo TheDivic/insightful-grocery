@@ -1,10 +1,20 @@
-import { IEmployeeRepo } from "./handler";
-import { IEmployee, Employee } from "./employee";
+import { IEmployeeRepo } from "../store/router";
+import { IEmployee, Employee, Role } from "./employee";
 
 class MongoRepo implements IEmployeeRepo {
   async get(): Promise<IEmployee[]> {
-    const nodes = await Employee.find();
-    return nodes;
+    const employees = await Employee.find();
+    return employees;
+  }
+
+  async at(path: string, role?: Role): Promise<IEmployee[]> {
+    const filter: Partial<IEmployee> = { nodePath: path };
+    if (role) {
+      filter.role = role;
+    }
+
+    const employees = await Employee.find(filter);
+    return employees;
   }
 
   async create(node: IEmployee): Promise<IEmployee> {
