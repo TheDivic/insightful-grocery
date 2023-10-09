@@ -1,4 +1,4 @@
-import { Schema, model } from "mongoose";
+import { Schema, model, Types } from "mongoose";
 
 enum Role {
   Employee = "employee",
@@ -7,6 +7,7 @@ enum Role {
 }
 
 interface IEmployee {
+  _id: Types.ObjectId;
   name: string;
   email: string;
   nodePath: string;

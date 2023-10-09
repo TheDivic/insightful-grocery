@@ -1,6 +1,6 @@
 import test from "ava";
 import express from "express";
-import { StoreRouter } from "../store/router";
+import { ICreateEmployee, IPostEmployee, StoreRouter } from "../store/router";
 import request from "supertest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { connect } from "mongoose";
@@ -15,6 +15,8 @@ let mongod: MongoMemoryServer;
 
 const storePath = "srbija.grad-beograd.vracar";
 const TEST_JWT_SECRET = "test_secret";
+
+let currentUser: IEmployee;
 let testJWT = "";
 
 test.before("setup", async () => {
@@ -31,11 +33,13 @@ test.before("setup", async () => {
     nodePath: storePath,
     role: Role.Manager,
   });
+  currentUser = targetStoreManager!;
   testJWT = generateJWT(targetStoreManager!, TEST_JWT_SECRET);
 
   // create the test router
   stores = express()
     .use(authenticationMiddleware(TEST_JWT_SECRET)) // add auth middleware because it's usually set on the app root level
+    .use(express.json())
     .use(new StoreRouter().router);
 });
 
@@ -155,8 +159,60 @@ test("Can't retrieve anything for an unauthorized node", async (t) => {
   t.is(response.status, 403);
 });
 
-test.todo("Create new employee/manager at a node");
+test("Create new manager at a node", async (t) => {
+  const newManager: IPostEmployee = {
+    name: "Manager Managersky",
+    email: "manager.managersky@gmail.com",
+    role: Role.Manager,
+  };
 
-test.todo("Delete an employee/manager from a node");
+  const response = await request(stores)
+    .post(`/${storePath}/employees`)
+    .set("Authorization", `Bearer ${testJWT}`)
+    .send(newManager);
+  t.is(response.status, 201);
+
+  const created: IEmployee = response.body;
+  t.is(created.name, newManager.name);
+  t.is(created.email, newManager.email);
+  t.is(created.role, newManager.role);
+  t.is(created.nodePath, storePath);
+});
+
+test("Create new employee at a node", async (t) => {
+  const newEmployee: IPostEmployee = {
+    name: "Employee Employsky",
+    email: "employee.employsky@gmail.com",
+    role: Role.Employee,
+  };
+
+  const response = await request(stores)
+    .post(`/${storePath}/employees`)
+    .set("Authorization", `Bearer ${testJWT}`)
+    .send(newEmployee);
+  t.is(response.status, 201);
+
+  const created: IEmployee = response.body;
+  t.is(created.name, newEmployee.name);
+  t.is(created.email, newEmployee.email);
+  t.is(created.role, newEmployee.role);
+  t.is(created.nodePath, storePath);
+});
+
+test("Delete an employee/manager from a node", async (t) => {
+  // find an employee in my store that's not me
+  const storeEmployees = await Employee.find({ nodePath: storePath });
+  t.truthy(storeEmployees.length);
+
+  const targetEmployee: IEmployee | undefined = storeEmployees.find(
+    (e) => e.email !== currentUser.email
+  );
+  t.truthy(targetEmployee);
+
+  const response = await request(stores)
+    .delete(`/${storePath}/employees/${targetEmployee!._id}`)
+    .set("Authorization", `Bearer ${testJWT}`);
+  t.is(response.status, 204);
+});
 
 test.todo("Update an employee/manager at a node");

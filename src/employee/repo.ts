@@ -1,4 +1,4 @@
-import { IEmployeeRepo } from "../store/router";
+import { ICreateEmployee, IEmployeeRepo } from "../store/router";
 import { IEmployee, Employee, Role } from "./employee";
 
 class MongoRepo implements IEmployeeRepo {
@@ -18,8 +18,8 @@ class MongoRepo implements IEmployeeRepo {
     return employees;
   }
 
-  async create(node: IEmployee): Promise<IEmployee> {
-    const created = await Employee.create(node);
+  async create(employee: ICreateEmployee): Promise<IEmployee> {
+    const created = await Employee.create(employee);
     return created;
   }
 
