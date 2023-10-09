@@ -6,15 +6,19 @@ import { MongoMemoryServer } from "mongodb-memory-server";
 import { connect } from "mongoose";
 import { Seeder } from "mongo-seeding";
 import path from "path";
-import { IEmployee, Role } from "../employee/employee";
+import { Employee, IEmployee, Role } from "../employee/employee";
+import { authenticationMiddleware } from "../auth/middleware";
+import { generateJWT } from "../auth/jwt";
 
 let stores: express.Express;
 let mongod: MongoMemoryServer;
 
 const storePath = "srbija.grad-beograd.vracar";
+const TEST_JWT_SECRET = "test_secret";
+let testJWT = "";
 
 test.before("setup", async () => {
-  // const repo = sinon.createStubInstance(MongoRepo);
+  // connect to an in-memory Mongo instance for tests
   mongod = await MongoMemoryServer.create();
   await connect(mongod.getUri());
 
@@ -23,7 +27,16 @@ test.before("setup", async () => {
   const collections = seeder.readCollectionsFromPath(path.resolve("seed"));
   await seeder.import(collections);
 
-  stores = express().use(new StoreRouter().router);
+  const targetStoreManager = await Employee.findOne({
+    nodePath: storePath,
+    role: Role.Manager,
+  });
+  testJWT = generateJWT(targetStoreManager!, TEST_JWT_SECRET);
+
+  // create the test router
+  stores = express()
+    .use(authenticationMiddleware(TEST_JWT_SECRET)) // add auth middleware because it's usually set on the app root level
+    .use(new StoreRouter().router);
 });
 
 test.after("teardown", async () => {
@@ -31,7 +44,9 @@ test.after("teardown", async () => {
 });
 
 test("Retrieve all people (managers+employees) for one node", async (t) => {
-  const response = await request(stores).get(`/${storePath}/employees`);
+  const response = await request(stores)
+    .get(`/${storePath}/employees`)
+    .set("Authorization", `Bearer ${testJWT}`);
   t.is(response.status, 200);
 
   // check if it returned a non-empty array
@@ -44,9 +59,9 @@ test("Retrieve all people (managers+employees) for one node", async (t) => {
 });
 
 test("Retrieve all managers for one node", async (t) => {
-  const response = await request(stores).get(
-    `/${storePath}/employees?role=manager`
-  );
+  const response = await request(stores)
+    .get(`/${storePath}/employees?role=manager`)
+    .set("Authorization", `Bearer ${testJWT}`);
   t.is(response.status, 200);
 
   // check if it returned a non-empty array
@@ -62,9 +77,9 @@ test("Retrieve all managers for one node", async (t) => {
 });
 
 test("Retrieve all employees for one node", async (t) => {
-  const response = await request(stores).get(
-    `/${storePath}/employees?role=employee`
-  );
+  const response = await request(stores)
+    .get(`/${storePath}/employees?role=employee`)
+    .set("Authorization", `Bearer ${testJWT}`);
   t.is(response.status, 200);
 
   // check if it returned a non-empty array
@@ -79,21 +94,66 @@ test("Retrieve all employees for one node", async (t) => {
   res.map((e) => t.is(e.role, Role.Employee));
 });
 
-// test("Retrieve all employees for one node and all his descendants", async (t) => {
-//   const response = await request(stores).get(
-//     `/${storePath}/employees?role=employee&deep=true`
-//   );
-//   t.is(response.status, 200);
-// });
+test("Retrieve all employees for one node and all his descendants", async (t) => {
+  const response = await request(stores)
+    .get(`/${storePath}/employees?role=employee&deep=true`)
+    .set("Authorization", `Bearer ${testJWT}`);
+  t.is(response.status, 200);
 
-// test("Retrieves all managers for one node and all his descendants", async (t) => {
-//   const response = await request(stores).get(
-//     `/${storePath}/employees?role=manager&deep=true`
-//   );
-//   t.is(response.status, 200);
-// });
+  // check if it returned a non-empty array
+  t.assert(Array.isArray(response.body));
+  const res: IEmployee[] = response.body;
+  t.not(res.length, 0);
 
-test.todo("Can't retrieve anything for an unauthorized node");
+  // check if it returns only employees for the target node and it's descendants
+  res.map((e) => t.assert(e.nodePath.startsWith(storePath)));
+
+  // check that some of the results are descendants and not only belonging to the target node
+  t.is(
+    res.some(
+      (e) => e.nodePath.startsWith(storePath) && e.nodePath !== storePath
+    ),
+    true
+  );
+
+  // check if it returns only employees
+  res.map((e) => t.is(e.role, Role.Employee));
+});
+
+test("Retrieves all managers for one node and all his descendants", async (t) => {
+  const response = await request(stores)
+    .get(`/${storePath}/employees?role=manager&deep=true`)
+    .set("Authorization", `Bearer ${testJWT}`);
+  t.is(response.status, 200);
+
+  // check if it returned a non-empty array
+  t.assert(Array.isArray(response.body));
+  const res: IEmployee[] = response.body;
+  t.not(res.length, 0);
+
+  // check if it returns only employees for the target node and it's descendants
+  res.map((e) => t.assert(e.nodePath.startsWith(storePath)));
+
+  // check that some of the results are descendants and not only belonging to the target node
+  t.is(
+    res.some(
+      (e) => e.nodePath.startsWith(storePath) && e.nodePath !== storePath
+    ),
+    true
+  );
+
+  // check if it returns only managers
+  res.map((e) => t.is(e.role, Role.Manager));
+});
+
+test("Can't retrieve anything for an unauthorized node", async (t) => {
+  const unauthorizedNode = "srbija.vojvodina.severnobacki-okrug";
+
+  const response = await request(stores)
+    .get(`/${unauthorizedNode}/employees?role=manager&deep=true`)
+    .set("Authorization", `Bearer ${testJWT}`);
+  t.is(response.status, 403);
+});
 
 test.todo("Create new employee/manager at a node");
 

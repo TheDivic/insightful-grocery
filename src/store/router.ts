@@ -3,29 +3,32 @@ import { MongoRepo } from "./repo";
 import { MongoRepo as EmployeeMongoRepo } from "../employee/repo";
 import { IStore } from "./store";
 import { IEmployee, Role } from "../employee/employee";
+import { authorizationMiddleware } from "../auth/middleware";
 
 class StoreRouter {
-  public router: express.Router;
-
   constructor(
     private stores: IStoreRepo = new MongoRepo(),
-    private employees: IEmployeeRepo = new EmployeeMongoRepo()
+    private employees: IEmployeeRepo = new EmployeeMongoRepo(),
+    public router = express.Router()
   ) {
-    this.router = express.Router();
-
+    // TODO: Add authorization here also
     this.router
       .route("/:storePath?")
-      .get(this.handleGet)
-      .post(this.handlePost)
-      .delete(this.handleDelete);
+      .get(authorizationMiddleware, this.handleGet)
+      .post(authorizationMiddleware, this.handlePost)
+      .delete(authorizationMiddleware, this.handleDelete);
 
-    this.router.route("/:storePath/employees").get(this.handleGetEmployees);
+    this.router
+      .route("/:storePath/employees")
+      .get(authorizationMiddleware, this.handleGetEmployees);
   }
 
   private handleGetEmployees = async (req: Request, res: Response) => {
     const employees = await this.employees.at(
       req.params.storePath,
-      req.query.role ? (req.query.role as Role) : undefined // TODO: parse and validate role
+      // TODO: parse and validate the following query parameters
+      req.query.deep ? (req.query.deep as unknown as boolean) : undefined,
+      req.query.role ? (req.query.role as Role) : undefined
     );
     res.json(employees);
   };
@@ -71,7 +74,7 @@ interface IStoreRepo {
 
 interface IEmployeeRepo {
   get(): Promise<IEmployee[]>;
-  at(path: string, role?: Role): Promise<IEmployee[]>;
+  at(path: string, deep?: boolean, role?: Role): Promise<IEmployee[]>;
   create(employee: IEmployee): Promise<IEmployee>;
   delete(id: string): Promise<void>;
 }

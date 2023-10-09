@@ -6,7 +6,6 @@ import jwt from "jsonwebtoken";
 
 import { StoreRouter } from "./store/router";
 import { Employee, Role } from "./employee/employee";
-import { employeeRouter } from "./employee/router";
 
 dotenv.config();
 
@@ -52,7 +51,6 @@ async function main() {
     console.log(`q=${args.auth}`);
     const user = await Employee.findOne({ email: args.auth });
     const userString = JSON.stringify(user);
-    console.log(userString);
 
     const key = jwt.sign(userString, "SUPER_SECRET");
     console.log(key);
@@ -83,7 +81,6 @@ async function main() {
   });
 
   api.use("/nodes", new StoreRouter().router);
-  api.use("/employees", employeeRouter());
 
   api.listen(GROCERY_PORT, () => {
     console.log(`Grocery API listening on :${GROCERY_PORT}`);

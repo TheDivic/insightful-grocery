@@ -7,12 +7,13 @@ class MongoRepo implements IEmployeeRepo {
     return employees;
   }
 
-  async at(path: string, role?: Role): Promise<IEmployee[]> {
-    const filter: Partial<IEmployee> = { nodePath: path };
+  async at(path: string, deep = false, role?: Role): Promise<IEmployee[]> {
+    const filter: { nodePath?: string | RegExp; role?: Role } = {
+      nodePath: deep ? new RegExp(`${path}`) : path,
+    };
     if (role) {
       filter.role = role;
     }
-
     const employees = await Employee.find(filter);
     return employees;
   }

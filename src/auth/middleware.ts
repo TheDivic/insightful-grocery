@@ -19,4 +19,19 @@ const managerMiddleware = (
   next();
 };
 
-export { authenticationMiddleware, managerMiddleware };
+const authorizationMiddleware = (
+  req: JWTRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  if (
+    !req.auth?.nodePath ||
+    (req.params?.storePath &&
+      !req.auth.nodePath.startsWith(req.params.storePath))
+  ) {
+    return res.status(403).send({ error: "Unauthorized to access this node" });
+  }
+  next();
+};
+
+export { authenticationMiddleware, managerMiddleware, authorizationMiddleware };
