@@ -20,7 +20,8 @@ class StoreRouter {
       .route("/:storePath/employees/:employeeId?")
       .get(authorizationMiddleware, this.handleGetEmployees)
       .post(authorizationMiddleware, this.handlePostEmployee)
-      .delete(authorizationMiddleware, this.handleDeleteEmployee);
+      .delete(authorizationMiddleware, this.handleDeleteEmployee)
+      .put(authorizationMiddleware, this.handleUpdateEmployee);
   }
 
   private handleGetEmployees = async (req: Request, res: Response) => {
@@ -68,7 +69,6 @@ class StoreRouter {
   };
 
   public handleDeleteEmployee = async (req: Request, res: Response) => {
-    console.log(`storePath=${req.params.storePath}`);
     const targetStore = await this.stores.get(req.params.storePath);
     if (targetStore == null) {
       return res
@@ -76,13 +76,30 @@ class StoreRouter {
         .send({ error: `No store with path=${req.params.storePath}` });
     }
 
-    try {
-      await this.employees.delete(req.params.employeeId);
-    } catch (err) {
-      console.error(err);
-      res.sendStatus(400);
-    }
+    await this.employees.delete(req.params.employeeId);
+
     res.sendStatus(204);
+  };
+
+  public handleUpdateEmployee = async (req: Request, res: Response) => {
+    const targetStore = await this.stores.get(req.params.storePath);
+    if (targetStore == null) {
+      return res
+        .status(404)
+        .json({ error: `No store with path=${req.params.storePath}` });
+    }
+
+    const updated = await this.employees.update(
+      req.params.employeeId,
+      req.body
+    );
+    if (updated == null) {
+      return res
+        .status(404)
+        .json({ error: `No employee with id=${req.params.employeeId}` });
+    }
+
+    res.json(updated);
   };
 }
 
@@ -100,6 +117,10 @@ interface IEmployeeRepo {
   at(path: string, deep?: boolean, role?: Role): Promise<IEmployee[]>;
   create(employee: ICreateEmployee): Promise<IEmployee>;
   delete(id: string): Promise<void>;
+  update(
+    id: string,
+    fields: Partial<ICreateEmployee>
+  ): Promise<IEmployee | null>;
 }
 
 type IPostEmployee = Omit<ICreateEmployee, "nodePath">;

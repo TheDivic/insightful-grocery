@@ -1,6 +1,6 @@
-import test from "ava";
+import test, { ExecutionContext } from "ava";
 import express from "express";
-import { ICreateEmployee, IPostEmployee, StoreRouter } from "../store/router";
+import { IPostEmployee, StoreRouter } from "../store/router";
 import request from "supertest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { connect } from "mongoose";
@@ -14,6 +14,7 @@ let stores: express.Express;
 let mongod: MongoMemoryServer;
 
 const storePath = "srbija.grad-beograd.vracar";
+const unauthorizedNode = "srbija.vojvodina.severnobacki-okrug";
 const TEST_JWT_SECRET = "test_secret";
 
 let currentUser: IEmployee;
@@ -151,8 +152,6 @@ test("Retrieves all managers for one node and all his descendants", async (t) =>
 });
 
 test("Can't retrieve anything for an unauthorized node", async (t) => {
-  const unauthorizedNode = "srbija.vojvodina.severnobacki-okrug";
-
   const response = await request(stores)
     .get(`/${unauthorizedNode}/employees?role=manager&deep=true`)
     .set("Authorization", `Bearer ${testJWT}`);
@@ -199,9 +198,67 @@ test("Create new employee at a node", async (t) => {
   t.is(created.nodePath, storePath);
 });
 
-test("Delete an employee/manager from a node", async (t) => {
-  // find an employee in my store that's not me
-  const storeEmployees = await Employee.find({ nodePath: storePath });
+// Ava runs tests concurrently by default, so we need to make this deletion serial
+// so it runs before any other tests try to access the deleted node.
+// The alternative was to perform DB setup and teardown after each test,
+// which would make tests significantly slower.
+test.serial("Delete an employee/manager from a node", async (t) => {
+  const targetEmployee = await findEmployee(t, storePath);
+
+  const response = await request(stores)
+    .delete(`/${storePath}/employees/${targetEmployee!._id}`)
+    .set("Authorization", `Bearer ${testJWT}`);
+
+  t.is(response.status, 204);
+});
+
+test("Update an employee/manager at a node", async (t) => {
+  const targetEmployee = await findEmployee(t, storePath);
+
+  // update just one property
+  const updateOne = { name: "Updated Name" };
+  let response = await request(stores)
+    .put(`/${storePath}/employees/${targetEmployee!._id}`)
+    .set("Authorization", `Bearer ${testJWT}`)
+    .send(updateOne);
+  t.is(response.status, 200);
+
+  t.truthy(response.body);
+  t.is(response.body.name, updateOne.name);
+  t.is(response.body.email, targetEmployee.email);
+  t.is(response.body.role, targetEmployee.role);
+  t.is(response.body.nodePath, storePath);
+
+  // now update multiple (all) properties
+  const updateMultiple = {
+    name: "Updated Name Again",
+    email: "updated.email@gmail.com",
+    role: Role.Manager,
+    nodePath: unauthorizedNode,
+  };
+
+  response = await request(stores)
+    .put(`/${storePath}/employees/${targetEmployee!._id}`)
+    .set("Authorization", `Bearer ${testJWT}`)
+    .send(updateMultiple);
+  t.is(response.status, 200);
+
+  t.truthy(response.body);
+  t.is(response.body.name, updateMultiple.name);
+  t.is(response.body.email, updateMultiple.email);
+  t.is(response.body.role, updateMultiple.role);
+  t.is(response.body.nodePath, updateMultiple.nodePath);
+});
+
+// findEmployee returns an employee from the current user's store that's not him
+const findEmployee = async (
+  t: ExecutionContext<unknown>,
+  path: string
+): Promise<IEmployee> => {
+  const storeEmployees = await Employee.find({
+    nodePath: path,
+    role: Role.Employee,
+  });
   t.truthy(storeEmployees.length);
 
   const targetEmployee: IEmployee | undefined = storeEmployees.find(
@@ -209,10 +266,5 @@ test("Delete an employee/manager from a node", async (t) => {
   );
   t.truthy(targetEmployee);
 
-  const response = await request(stores)
-    .delete(`/${storePath}/employees/${targetEmployee!._id}`)
-    .set("Authorization", `Bearer ${testJWT}`);
-  t.is(response.status, 204);
-});
-
-test.todo("Update an employee/manager at a node");
+  return targetEmployee!;
+};

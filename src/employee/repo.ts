@@ -26,6 +26,14 @@ class MongoRepo implements IEmployeeRepo {
   async delete(id: string): Promise<void> {
     await Employee.deleteOne({ _id: id });
   }
+
+  async update(
+    id: string,
+    fields: Partial<ICreateEmployee>
+  ): Promise<IEmployee | null> {
+    const target = await Employee.findByIdAndUpdate(id, fields, { new: true });
+    return target;
+  }
 }
 
 export { MongoRepo };
