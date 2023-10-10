@@ -3,7 +3,8 @@ import { MongoRepo } from "./repo";
 import { MongoRepo as EmployeeMongoRepo } from "../employee/repo";
 import { IStore } from "./store";
 import { IEmployee, Role } from "../employee/employee";
-import { authorizationMiddleware } from "../auth/middleware";
+import { authorizationMiddleware, managerMiddleware } from "../auth/middleware";
+import { Request as JWTRequest } from "express-jwt";
 
 class StoreRouter {
   constructor(
@@ -11,27 +12,55 @@ class StoreRouter {
     private employees: IEmployeeRepo = new EmployeeMongoRepo(),
     public router = express.Router()
   ) {
-    // TODO: Add authorization here also
     this.router
-      .route("/:storePath?")
-      .get(authorizationMiddleware, this.handleGet);
+      .route("/:storePath/managers/:managerId?")
+      .get(authorizationMiddleware, managerMiddleware, this.handleGetManagers)
+      .post(authorizationMiddleware, managerMiddleware, this.handlePostEmployee)
+      .delete(
+        authorizationMiddleware,
+        managerMiddleware,
+        this.handleDeleteEmployee
+      )
+      .put(
+        authorizationMiddleware,
+        managerMiddleware,
+        this.handleUpdateEmployee
+      );
 
     this.router
       .route("/:storePath/employees/:employeeId?")
       .get(authorizationMiddleware, this.handleGetEmployees)
-      .post(authorizationMiddleware, this.handlePostEmployee)
-      .delete(authorizationMiddleware, this.handleDeleteEmployee)
-      .put(authorizationMiddleware, this.handleUpdateEmployee);
+      .post(authorizationMiddleware, managerMiddleware, this.handlePostEmployee)
+      .delete(
+        authorizationMiddleware,
+        managerMiddleware,
+        this.handleDeleteEmployee
+      )
+      .put(
+        authorizationMiddleware,
+        managerMiddleware,
+        this.handleUpdateEmployee
+      );
   }
 
-  private handleGetEmployees = async (req: Request, res: Response) => {
-    const employees = await this.employees.at(
-      req.params.storePath,
-      // TODO: parse and validate the following query parameters
-      req.query.deep ? (req.query.deep as unknown as boolean) : undefined,
-      req.query.role ? (req.query.role as Role) : undefined
-    );
-    res.json(employees);
+  // TODO: implement get by managerId
+  private handleGetManagers = async (req: JWTRequest, res: Response) => {
+    const deep = req.query.deep
+      ? (req.query.deep as unknown as boolean)
+      : undefined;
+
+    const managers = await this.employees.managers(req.params.storePath, deep);
+    res.json(managers);
+  };
+
+  // TODO: implement get by managerId
+  private handleGetEmployees = async (req: JWTRequest, res: Response) => {
+    const deep = req.query.deep
+      ? (req.query.deep as unknown as boolean)
+      : undefined;
+
+    const managers = await this.employees.employees(req.params.storePath, deep);
+    res.json(managers);
   };
 
   private handleGet = async (req: Request, res: Response) => {
@@ -57,6 +86,7 @@ class StoreRouter {
       ...req.body,
     };
 
+    // TODO: Check if the given employee belongs to the target store!
     let created: IEmployee;
     try {
       created = await this.employees.create(newEmployee);
@@ -76,6 +106,7 @@ class StoreRouter {
         .send({ error: `No store with path=${req.params.storePath}` });
     }
 
+    // TODO: Check if the given employee belongs to the target store!
     await this.employees.delete(req.params.employeeId);
 
     res.sendStatus(204);
@@ -89,6 +120,7 @@ class StoreRouter {
         .json({ error: `No store with path=${req.params.storePath}` });
     }
 
+    // TODO: Check if the given employee belongs to the target store!
     const updated = await this.employees.update(
       req.params.employeeId,
       req.body
@@ -115,6 +147,8 @@ type ICreateEmployee = Omit<IEmployee, "_id">;
 interface IEmployeeRepo {
   get(): Promise<IEmployee[]>;
   at(path: string, deep?: boolean, role?: Role): Promise<IEmployee[]>;
+  managers(path: string, deep?: boolean): Promise<IEmployee[]>;
+  employees(path: string, deep?: boolean): Promise<IEmployee[]>;
   create(employee: ICreateEmployee): Promise<IEmployee>;
   delete(id: string): Promise<void>;
   update(

@@ -31,8 +31,25 @@ class MongoRepo implements IEmployeeRepo {
     id: string,
     fields: Partial<ICreateEmployee>
   ): Promise<IEmployee | null> {
-    const target = await Employee.findByIdAndUpdate(id, fields, { new: true });
-    return target;
+    return Employee.findByIdAndUpdate(id, fields, { new: true });
+  }
+
+  async managers(path: string, deep?: boolean): Promise<IEmployee[]> {
+    const filter = {
+      nodePath: deep ? new RegExp(`${path}`) : path,
+      role: Role.Manager,
+    };
+
+    return Employee.find(filter);
+  }
+
+  async employees(path: string, deep?: boolean): Promise<IEmployee[]> {
+    const filter = {
+      nodePath: deep ? new RegExp(`${path}`) : path,
+      role: Role.Employee,
+    };
+
+    return Employee.find(filter);
   }
 }
 

@@ -1,45 +1,41 @@
-import test, { ExecutionContext } from "ava";
+import test from "ava";
 import express from "express";
 import { IPostEmployee, StoreRouter } from "../store/router";
 import request from "supertest";
 import { MongoMemoryServer } from "mongodb-memory-server";
-import { connect } from "mongoose";
-import { Seeder } from "mongo-seeding";
-import path from "path";
-import { Employee, IEmployee, Role } from "../employee/employee";
+import { IEmployee, Role } from "../employee/employee";
 import { authenticationMiddleware } from "../auth/middleware";
-import { generateJWT } from "../auth/jwt";
+import {
+  authenticate,
+  connectToTestDB,
+  findCoworker,
+  populateTestDB,
+} from "./_utils";
 
-let stores: express.Express;
+// Test constants
+const AUTHORIZED_STORE = "srbija.grad-beograd.vracar";
+const UNAUTHORIZED_STORE = "srbija.vojvodina.severnobacki-okrug";
+const JWT_SECRET = "test_secret";
+
+// Dependencies required for tests
+let api: express.Express;
 let mongod: MongoMemoryServer;
-
-const storePath = "srbija.grad-beograd.vracar";
-const unauthorizedNode = "srbija.vojvodina.severnobacki-okrug";
-const TEST_JWT_SECRET = "test_secret";
-
 let currentUser: IEmployee;
 let testJWT = "";
 
 test.before("setup", async () => {
-  // connect to an in-memory Mongo instance for tests
-  mongod = await MongoMemoryServer.create();
-  await connect(mongod.getUri());
+  // setup & populate a in-memory database
+  mongod = await connectToTestDB();
+  await populateTestDB(mongod);
 
-  // seed the database with test data
-  const seeder = new Seeder({ database: mongod.getUri() });
-  const collections = seeder.readCollectionsFromPath(path.resolve("seed"));
-  await seeder.import(collections);
-
-  const targetStoreManager = await Employee.findOne({
-    nodePath: storePath,
-    role: Role.Manager,
-  });
-  currentUser = targetStoreManager!;
-  testJWT = generateJWT(targetStoreManager!, TEST_JWT_SECRET);
+  // authenticate the current user
+  const auth = await authenticate(AUTHORIZED_STORE, Role.Manager, JWT_SECRET);
+  currentUser = auth.currentUser;
+  testJWT = auth.jwt;
 
   // create the test router
-  stores = express()
-    .use(authenticationMiddleware(TEST_JWT_SECRET)) // add auth middleware because it's usually set on the app root level
+  api = express()
+    .use(authenticationMiddleware(JWT_SECRET)) // add auth middleware because it's usually set on the app root level
     .use(express.json())
     .use(new StoreRouter().router);
 });
@@ -48,24 +44,9 @@ test.after("teardown", async () => {
   await mongod.stop();
 });
 
-test("Retrieve all people (managers+employees) for one node", async (t) => {
-  const response = await request(stores)
-    .get(`/${storePath}/employees`)
-    .set("Authorization", `Bearer ${testJWT}`);
-  t.is(response.status, 200);
-
-  // check if it returned a non-empty array
-  t.assert(Array.isArray(response.body));
-  const res: IEmployee[] = response.body;
-  t.not(res.length, 0);
-
-  // check if it returned only employees for the target node
-  res.map((e) => t.is(e.nodePath, storePath));
-});
-
-test("Retrieve all managers for one node", async (t) => {
-  const response = await request(stores)
-    .get(`/${storePath}/employees?role=manager`)
+test("(+) retrieve all managers for one node", async (t) => {
+  const response = await request(api)
+    .get(`/${AUTHORIZED_STORE}/managers`)
     .set("Authorization", `Bearer ${testJWT}`);
   t.is(response.status, 200);
 
@@ -75,15 +56,43 @@ test("Retrieve all managers for one node", async (t) => {
   t.not(res.length, 0);
 
   // check if it returs only employees for the target node
-  res.map((e) => t.is(e.nodePath, storePath));
+  res.map((e) => t.is(e.nodePath, AUTHORIZED_STORE));
 
   // check if it returns only managers
   res.map((e) => t.is(e.role, Role.Manager));
 });
 
-test("Retrieve all employees for one node", async (t) => {
-  const response = await request(stores)
-    .get(`/${storePath}/employees?role=employee`)
+test("(+) retrieve all managers for one node and all his descendants", async (t) => {
+  const response = await request(api)
+    .get(`/${AUTHORIZED_STORE}/managers?deep=true`)
+    .set("Authorization", `Bearer ${testJWT}`);
+  t.is(response.status, 200);
+
+  // check if it returned a non-empty array
+  t.assert(Array.isArray(response.body));
+  const res: IEmployee[] = response.body;
+  t.not(res.length, 0);
+
+  // check if it returns only employees for the target node and it's descendants
+  res.map((e) => t.assert(e.nodePath.startsWith(AUTHORIZED_STORE)));
+
+  // check that some of the results are descendants and not only belonging to the target node
+  t.is(
+    res.some(
+      (e) =>
+        e.nodePath.startsWith(AUTHORIZED_STORE) &&
+        e.nodePath !== AUTHORIZED_STORE
+    ),
+    true
+  );
+
+  // check if it returns only managers
+  res.map((e) => t.is(e.role, Role.Manager));
+});
+
+test("(+) retrieve all employees for one node", async (t) => {
+  const response = await request(api)
+    .get(`/${AUTHORIZED_STORE}/employees`)
     .set("Authorization", `Bearer ${testJWT}`);
   t.is(response.status, 200);
 
@@ -93,15 +102,15 @@ test("Retrieve all employees for one node", async (t) => {
   t.not(res.length, 0);
 
   // check if it returs only employees for the target node
-  res.map((e) => t.is(e.nodePath, storePath));
+  res.map((e) => t.is(e.nodePath, AUTHORIZED_STORE));
 
   // check if it returns only employees
   res.map((e) => t.is(e.role, Role.Employee));
 });
 
-test("Retrieve all employees for one node and all his descendants", async (t) => {
-  const response = await request(stores)
-    .get(`/${storePath}/employees?role=employee&deep=true`)
+test("(+) retrieve all employees for one node and all his descendants", async (t) => {
+  const response = await request(api)
+    .get(`/${AUTHORIZED_STORE}/employees?role=employee&deep=true`)
     .set("Authorization", `Bearer ${testJWT}`);
   t.is(response.status, 200);
 
@@ -111,12 +120,14 @@ test("Retrieve all employees for one node and all his descendants", async (t) =>
   t.not(res.length, 0);
 
   // check if it returns only employees for the target node and it's descendants
-  res.map((e) => t.assert(e.nodePath.startsWith(storePath)));
+  res.map((e) => t.assert(e.nodePath.startsWith(AUTHORIZED_STORE)));
 
   // check that some of the results are descendants and not only belonging to the target node
   t.is(
     res.some(
-      (e) => e.nodePath.startsWith(storePath) && e.nodePath !== storePath
+      (e) =>
+        e.nodePath.startsWith(AUTHORIZED_STORE) &&
+        e.nodePath !== AUTHORIZED_STORE
     ),
     true
   );
@@ -125,48 +136,23 @@ test("Retrieve all employees for one node and all his descendants", async (t) =>
   res.map((e) => t.is(e.role, Role.Employee));
 });
 
-test("Retrieves all managers for one node and all his descendants", async (t) => {
-  const response = await request(stores)
-    .get(`/${storePath}/employees?role=manager&deep=true`)
+test("(-) retrieve employees for an unauthorized node", async (t) => {
+  const response = await request(api)
+    .get(`/${UNAUTHORIZED_STORE}/employees?role=manager&deep=true`)
     .set("Authorization", `Bearer ${testJWT}`);
-  t.is(response.status, 200);
 
-  // check if it returned a non-empty array
-  t.assert(Array.isArray(response.body));
-  const res: IEmployee[] = response.body;
-  t.not(res.length, 0);
-
-  // check if it returns only employees for the target node and it's descendants
-  res.map((e) => t.assert(e.nodePath.startsWith(storePath)));
-
-  // check that some of the results are descendants and not only belonging to the target node
-  t.is(
-    res.some(
-      (e) => e.nodePath.startsWith(storePath) && e.nodePath !== storePath
-    ),
-    true
-  );
-
-  // check if it returns only managers
-  res.map((e) => t.is(e.role, Role.Manager));
-});
-
-test("Can't retrieve anything for an unauthorized node", async (t) => {
-  const response = await request(stores)
-    .get(`/${unauthorizedNode}/employees?role=manager&deep=true`)
-    .set("Authorization", `Bearer ${testJWT}`);
   t.is(response.status, 403);
 });
 
-test("Create new manager at a node", async (t) => {
+test("(+) create new manager at a node", async (t) => {
   const newManager: IPostEmployee = {
     name: "Manager Managersky",
     email: "manager.managersky@gmail.com",
     role: Role.Manager,
   };
 
-  const response = await request(stores)
-    .post(`/${storePath}/employees`)
+  const response = await request(api)
+    .post(`/${AUTHORIZED_STORE}/employees`)
     .set("Authorization", `Bearer ${testJWT}`)
     .send(newManager);
   t.is(response.status, 201);
@@ -175,18 +161,18 @@ test("Create new manager at a node", async (t) => {
   t.is(created.name, newManager.name);
   t.is(created.email, newManager.email);
   t.is(created.role, newManager.role);
-  t.is(created.nodePath, storePath);
+  t.is(created.nodePath, AUTHORIZED_STORE);
 });
 
-test("Create new employee at a node", async (t) => {
+test("(+) create new employee at a node", async (t) => {
   const newEmployee: IPostEmployee = {
     name: "Employee Employsky",
     email: "employee.employsky@gmail.com",
     role: Role.Employee,
   };
 
-  const response = await request(stores)
-    .post(`/${storePath}/employees`)
+  const response = await request(api)
+    .post(`/${AUTHORIZED_STORE}/employees`)
     .set("Authorization", `Bearer ${testJWT}`)
     .send(newEmployee);
   t.is(response.status, 201);
@@ -195,30 +181,30 @@ test("Create new employee at a node", async (t) => {
   t.is(created.name, newEmployee.name);
   t.is(created.email, newEmployee.email);
   t.is(created.role, newEmployee.role);
-  t.is(created.nodePath, storePath);
+  t.is(created.nodePath, AUTHORIZED_STORE);
 });
 
 // Ava runs tests concurrently by default, so we need to make this deletion serial
 // so it runs before any other tests try to access the deleted node.
 // The alternative was to perform DB setup and teardown after each test,
 // which would make tests significantly slower.
-test.serial("Delete an employee/manager from a node", async (t) => {
-  const targetEmployee = await findEmployee(t, storePath);
+test.serial("(+) delete an employee from a node", async (t) => {
+  const targetEmployee = await findCoworker(t, currentUser, Role.Employee);
 
-  const response = await request(stores)
-    .delete(`/${storePath}/employees/${targetEmployee!._id}`)
+  const response = await request(api)
+    .delete(`/${AUTHORIZED_STORE}/employees/${targetEmployee!._id}`)
     .set("Authorization", `Bearer ${testJWT}`);
 
   t.is(response.status, 204);
 });
 
-test("Update an employee/manager at a node", async (t) => {
-  const targetEmployee = await findEmployee(t, storePath);
+test("(+) update an employee at a node", async (t) => {
+  const targetEmployee = await findCoworker(t, currentUser, Role.Employee);
 
   // update just one property
   const updateOne = { name: "Updated Name" };
-  let response = await request(stores)
-    .put(`/${storePath}/employees/${targetEmployee!._id}`)
+  let response = await request(api)
+    .put(`/${AUTHORIZED_STORE}/employees/${targetEmployee!._id}`)
     .set("Authorization", `Bearer ${testJWT}`)
     .send(updateOne);
   t.is(response.status, 200);
@@ -227,18 +213,18 @@ test("Update an employee/manager at a node", async (t) => {
   t.is(response.body.name, updateOne.name);
   t.is(response.body.email, targetEmployee.email);
   t.is(response.body.role, targetEmployee.role);
-  t.is(response.body.nodePath, storePath);
+  t.is(response.body.nodePath, AUTHORIZED_STORE);
 
   // now update multiple (all) properties
   const updateMultiple = {
     name: "Updated Name Again",
     email: "updated.email@gmail.com",
     role: Role.Manager,
-    nodePath: unauthorizedNode,
+    nodePath: UNAUTHORIZED_STORE,
   };
 
-  response = await request(stores)
-    .put(`/${storePath}/employees/${targetEmployee!._id}`)
+  response = await request(api)
+    .put(`/${AUTHORIZED_STORE}/employees/${targetEmployee!._id}`)
     .set("Authorization", `Bearer ${testJWT}`)
     .send(updateMultiple);
   t.is(response.status, 200);
@@ -250,21 +236,6 @@ test("Update an employee/manager at a node", async (t) => {
   t.is(response.body.nodePath, updateMultiple.nodePath);
 });
 
-// findEmployee returns an employee from the current user's store that's not him
-const findEmployee = async (
-  t: ExecutionContext<unknown>,
-  path: string
-): Promise<IEmployee> => {
-  const storeEmployees = await Employee.find({
-    nodePath: path,
-    role: Role.Employee,
-  });
-  t.truthy(storeEmployees.length);
+test.todo("(+) update manager");
 
-  const targetEmployee: IEmployee | undefined = storeEmployees.find(
-    (e) => e.email !== currentUser.email
-  );
-  t.truthy(targetEmployee);
-
-  return targetEmployee!;
-};
+test.todo("(-) delete manager");
