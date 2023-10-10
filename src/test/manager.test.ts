@@ -9,6 +9,7 @@ import {
   authenticate,
   connectToTestDB,
   findCoworker,
+  findDescendant,
   populateTestDB,
 } from "./_utils";
 
@@ -44,7 +45,7 @@ test.after("teardown", async () => {
   await mongod.stop();
 });
 
-test("(+) retrieve all managers for one node", async (t) => {
+test("(+) retrieve managers for one node", async (t) => {
   const response = await request(api)
     .get(`/${AUTHORIZED_STORE}/managers`)
     .set("Authorization", `Bearer ${testJWT}`);
@@ -90,7 +91,24 @@ test("(+) retrieve all managers for one node and all his descendants", async (t)
   res.map((e) => t.is(e.role, Role.Manager));
 });
 
-test("(+) retrieve all employees for one node", async (t) => {
+test("(+) retrieve a manager by ID", async (t) => {
+  const coworker = await findCoworker(t, currentUser, Role.Manager);
+
+  const response = await request(api)
+    .get(`/${AUTHORIZED_STORE}/managers/${coworker._id}`)
+    .set("Authorization", `Bearer ${testJWT}`);
+
+  t.is(response.status, 200);
+
+  // check if it returned an object and not an array
+  t.is(typeof response.body, "object");
+  t.assert(!Array.isArray(response.body));
+
+  const res: IEmployee = response.body;
+  t.is(res._id.toString(), coworker._id.toString());
+});
+
+test("(+) retrieve employees for one node", async (t) => {
   const response = await request(api)
     .get(`/${AUTHORIZED_STORE}/employees`)
     .set("Authorization", `Bearer ${testJWT}`);
@@ -108,7 +126,7 @@ test("(+) retrieve all employees for one node", async (t) => {
   res.map((e) => t.is(e.role, Role.Employee));
 });
 
-test("(+) retrieve all employees for one node and all his descendants", async (t) => {
+test("(+) retrieve employees for one node and all his descendants", async (t) => {
   const response = await request(api)
     .get(`/${AUTHORIZED_STORE}/employees?role=employee&deep=true`)
     .set("Authorization", `Bearer ${testJWT}`);
@@ -136,6 +154,25 @@ test("(+) retrieve all employees for one node and all his descendants", async (t
   res.map((e) => t.is(e.role, Role.Employee));
 });
 
+test("(+) retrieve an employee by ID", async (t) => {
+  const coworker = await findDescendant(t, currentUser, Role.Employee);
+
+  const response = await request(api)
+    .get(`/${coworker.nodePath}/employees/${coworker._id}`)
+    .set("Authorization", `Bearer ${testJWT}`);
+  t.is(response.status, 200);
+
+  // check if it returned an object and not an array
+  t.is(typeof response.body, "object");
+  t.assert(
+    !Array.isArray(response.body),
+    "received an array instead of object"
+  );
+
+  const res: IEmployee = response.body;
+  t.is(res._id.toString(), coworker._id.toString());
+});
+
 test("(-) retrieve employees for an unauthorized node", async (t) => {
   const response = await request(api)
     .get(`/${UNAUTHORIZED_STORE}/employees?role=manager&deep=true`)
@@ -144,7 +181,9 @@ test("(-) retrieve employees for an unauthorized node", async (t) => {
   t.is(response.status, 403);
 });
 
-test("(+) create new manager at a node", async (t) => {
+// The following tests change the DB state so we want to run them serially,
+// to avoid test race conditions.
+test.serial("(+) create manager", async (t) => {
   const newManager: IPostEmployee = {
     name: "Manager Managersky",
     email: "manager.managersky@gmail.com",
@@ -152,7 +191,7 @@ test("(+) create new manager at a node", async (t) => {
   };
 
   const response = await request(api)
-    .post(`/${AUTHORIZED_STORE}/employees`)
+    .post(`/${AUTHORIZED_STORE}/managers`)
     .set("Authorization", `Bearer ${testJWT}`)
     .send(newManager);
   t.is(response.status, 201);
@@ -164,7 +203,16 @@ test("(+) create new manager at a node", async (t) => {
   t.is(created.nodePath, AUTHORIZED_STORE);
 });
 
-test("(+) create new employee at a node", async (t) => {
+test.serial("(+) delete manager", async (t) => {
+  const targetEmployee = await findCoworker(t, currentUser, Role.Manager);
+  const response = await request(api)
+    .delete(`/${AUTHORIZED_STORE}/managers/${targetEmployee!._id}`)
+    .set("Authorization", `Bearer ${testJWT}`);
+
+  t.is(response.status, 204);
+});
+
+test.serial("(+) create employee", async (t) => {
   const newEmployee: IPostEmployee = {
     name: "Employee Employsky",
     email: "employee.employsky@gmail.com",
@@ -184,13 +232,8 @@ test("(+) create new employee at a node", async (t) => {
   t.is(created.nodePath, AUTHORIZED_STORE);
 });
 
-// Ava runs tests concurrently by default, so we need to make this deletion serial
-// so it runs before any other tests try to access the deleted node.
-// The alternative was to perform DB setup and teardown after each test,
-// which would make tests significantly slower.
-test.serial("(+) delete an employee from a node", async (t) => {
-  const targetEmployee = await findCoworker(t, currentUser, Role.Employee);
-
+test.serial("(+) delete employee", async (t) => {
+  const targetEmployee = await findDescendant(t, currentUser, Role.Employee);
   const response = await request(api)
     .delete(`/${AUTHORIZED_STORE}/employees/${targetEmployee!._id}`)
     .set("Authorization", `Bearer ${testJWT}`);
@@ -198,8 +241,45 @@ test.serial("(+) delete an employee from a node", async (t) => {
   t.is(response.status, 204);
 });
 
-test("(+) update an employee at a node", async (t) => {
-  const targetEmployee = await findCoworker(t, currentUser, Role.Employee);
+test.serial("(+) update manager", async (t) => {
+  const targetManager = await findDescendant(t, currentUser, Role.Manager);
+
+  // update just one property
+  const updateOne = { name: "Updated Name" };
+  let response = await request(api)
+    .put(`/${AUTHORIZED_STORE}/managers/${targetManager!._id}`)
+    .set("Authorization", `Bearer ${testJWT}`)
+    .send(updateOne);
+  t.is(response.status, 200);
+
+  t.truthy(response.body);
+  t.is(response.body.name, updateOne.name);
+  t.is(response.body.email, targetManager.email);
+  t.is(response.body.role, targetManager.role);
+  t.is(response.body.nodePath, targetManager.nodePath);
+
+  // now update multiple (all) properties
+  const updateMultiple = {
+    name: "Updated Name Again",
+    email: "updated.email@gmail.com",
+    role: Role.Employee,
+  };
+
+  response = await request(api)
+    .put(`/${AUTHORIZED_STORE}/managers/${targetManager!._id}`)
+    .set("Authorization", `Bearer ${testJWT}`)
+    .send(updateMultiple);
+  t.is(response.status, 200);
+
+  t.truthy(response.body);
+  t.is(response.body.name, updateMultiple.name);
+  t.is(response.body.email, updateMultiple.email);
+  t.is(response.body.role, updateMultiple.role);
+  t.is(response.body.nodePath, targetManager.nodePath);
+});
+
+test.serial("(+) update employee", async (t) => {
+  const targetEmployee = await findDescendant(t, currentUser, Role.Employee);
 
   // update just one property
   const updateOne = { name: "Updated Name" };
@@ -213,14 +293,13 @@ test("(+) update an employee at a node", async (t) => {
   t.is(response.body.name, updateOne.name);
   t.is(response.body.email, targetEmployee.email);
   t.is(response.body.role, targetEmployee.role);
-  t.is(response.body.nodePath, AUTHORIZED_STORE);
+  t.is(response.body.nodePath, targetEmployee.nodePath);
 
   // now update multiple (all) properties
   const updateMultiple = {
     name: "Updated Name Again",
     email: "updated.email@gmail.com",
     role: Role.Manager,
-    nodePath: UNAUTHORIZED_STORE,
   };
 
   response = await request(api)
@@ -233,9 +312,5 @@ test("(+) update an employee at a node", async (t) => {
   t.is(response.body.name, updateMultiple.name);
   t.is(response.body.email, updateMultiple.email);
   t.is(response.body.role, updateMultiple.role);
-  t.is(response.body.nodePath, updateMultiple.nodePath);
+  t.is(response.body.nodePath, targetEmployee.nodePath);
 });
-
-test.todo("(+) update manager");
-
-test.todo("(-) delete manager");

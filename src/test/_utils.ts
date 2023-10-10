@@ -14,18 +14,46 @@ const findCoworker = async (
   currentUser: IEmployee,
   role: Role
 ): Promise<IEmployee> => {
-  const coworkers = await Employee.find({
+  const coworker = await Employee.findOne({
     nodePath: currentUser.nodePath,
-    role,
+    role: role.toString(),
+    _id: { $ne: currentUser._id },
   });
-  t.truthy(coworkers.length);
-
-  const coworker: IEmployee | undefined = coworkers.find(
-    (e) => e.email !== currentUser.email
-  );
-  t.truthy(coworker);
+  t.truthy(coworker, `no coworker with role=${role} found`);
 
   return coworker!;
+};
+
+// findExternal returns a random person who works in a store outside of your scope (another branch in the tree)
+const findExternal = async (
+  t: ExecutionContext<unknown>,
+  currentUser: IEmployee,
+  role: Role
+) => {
+  const external = await Employee.findOne({
+    nodePath: { $ne: new RegExp(currentUser.nodePath) },
+    role,
+  });
+  t.truthy(external);
+  return external!;
+};
+
+const findDescendant = async (
+  t: ExecutionContext<unknown>,
+  currentUser: IEmployee,
+  role: Role
+) => {
+  const external = await Employee.findOne({
+    nodePath: {
+      $ne: currentUser.nodePath,
+      $regex: new RegExp(currentUser.nodePath),
+    },
+    role,
+  });
+  t.truthy(external);
+  t.not(external?.nodePath, currentUser.nodePath);
+
+  return external!;
 };
 
 // connectTestDB connects to an in-memory MongoDB instance
@@ -57,4 +85,11 @@ const authenticate = async (
   return { currentUser, jwt: testJWT };
 };
 
-export { findCoworker, connectToTestDB, populateTestDB, authenticate };
+export {
+  findCoworker,
+  connectToTestDB,
+  populateTestDB,
+  authenticate,
+  findExternal,
+  findDescendant,
+};

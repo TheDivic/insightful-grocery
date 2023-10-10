@@ -7,17 +7,6 @@ class MongoRepo implements IEmployeeRepo {
     return employees;
   }
 
-  async at(path: string, deep = false, role?: Role): Promise<IEmployee[]> {
-    const filter: { nodePath?: string | RegExp; role?: Role } = {
-      nodePath: deep ? new RegExp(`${path}`) : path,
-    };
-    if (role) {
-      filter.role = role;
-    }
-    const employees = await Employee.find(filter);
-    return employees;
-  }
-
   async create(employee: ICreateEmployee): Promise<IEmployee> {
     const created = await Employee.create(employee);
     return created;
@@ -50,6 +39,14 @@ class MongoRepo implements IEmployeeRepo {
     };
 
     return Employee.find(filter);
+  }
+
+  async manager(id: string): Promise<IEmployee | null> {
+    return Employee.findOne({ _id: id, role: Role.Manager });
+  }
+
+  async employee(id: string): Promise<IEmployee | null> {
+    return Employee.findOne({ _id: id, role: Role.Employee });
   }
 }
 

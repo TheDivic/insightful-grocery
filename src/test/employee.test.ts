@@ -42,7 +42,7 @@ test.after("teardown", async () => {
   await mongod.stop();
 });
 
-test("(+) retrieve all employees for one node", async (t) => {
+test.serial("(+) retrieve all employees for one node", async (t) => {
   const response = await request(stores)
     .get(`/${AUTHORIZED_STORE}/employees`)
     .set("Authorization", `Bearer ${testJWT}`);
@@ -60,42 +60,45 @@ test("(+) retrieve all employees for one node", async (t) => {
   res.map((e) => t.is(e.role, Role.Employee));
 });
 
-test("(+) retrieve all employees for one node and all his descendants", async (t) => {
-  const response = await request(stores)
-    .get(`/${AUTHORIZED_STORE}/employees?role=employee&deep=true`)
-    .set("Authorization", `Bearer ${testJWT}`);
-  t.is(response.status, 200);
+test.serial(
+  "(+) retrieve all employees for one node and all his descendants",
+  async (t) => {
+    const response = await request(stores)
+      .get(`/${AUTHORIZED_STORE}/employees?role=employee&deep=true`)
+      .set("Authorization", `Bearer ${testJWT}`);
+    t.is(response.status, 200);
 
-  // check if it returned a non-empty array
-  t.assert(Array.isArray(response.body));
-  const res: IEmployee[] = response.body;
-  t.not(res.length, 0);
+    // check if it returned a non-empty array
+    t.assert(Array.isArray(response.body));
+    const res: IEmployee[] = response.body;
+    t.not(res.length, 0);
 
-  // check if it returns only employees for the target node and it's descendants
-  res.map((e) => t.assert(e.nodePath.startsWith(AUTHORIZED_STORE)));
+    // check if it returns only employees for the target node and it's descendants
+    res.map((e) => t.assert(e.nodePath.startsWith(AUTHORIZED_STORE)));
 
-  // check that some of the results are descendants and not only belonging to the target node
-  t.is(
-    res.some(
-      (e) =>
-        e.nodePath.startsWith(AUTHORIZED_STORE) &&
-        e.nodePath !== AUTHORIZED_STORE
-    ),
-    true
-  );
+    // check that some of the results are descendants and not only belonging to the target node
+    t.is(
+      res.some(
+        (e) =>
+          e.nodePath.startsWith(AUTHORIZED_STORE) &&
+          e.nodePath !== AUTHORIZED_STORE
+      ),
+      true
+    );
 
-  // check if it returns only employees
-  res.map((e) => t.is(e.role, Role.Employee));
-});
+    // check if it returns only employees
+    res.map((e) => t.is(e.role, Role.Employee));
+  }
+);
 
-test("(-) retrieve managers for authorized node", async (t) => {
+test.serial("(-) retrieve managers for authorized node", async (t) => {
   const response = await request(stores)
     .get(`/${AUTHORIZED_STORE}/managers`)
     .set("Authorization", `Bearer ${testJWT}`);
   t.is(response.status, 403);
 });
 
-test("(-) retrieve employees from an unauthorized node", async (t) => {
+test.serial("(-) retrieve employees from an unauthorized node", async (t) => {
   const response = await request(stores)
     .get(`/${UNAUTHORIZED_STORE}/employees?deep=true`)
     .set("Authorization", `Bearer ${testJWT}`);
@@ -103,7 +106,7 @@ test("(-) retrieve employees from an unauthorized node", async (t) => {
   t.is(response.status, 403);
 });
 
-test("(-) create employees", async (t) => {
+test.serial("(-) create employees", async (t) => {
   const newEmployee: IPostEmployee = {
     name: "Employee Employsky",
     email: "employee.employsky@gmail.com",
@@ -118,7 +121,7 @@ test("(-) create employees", async (t) => {
   t.is(response.status, 403);
 });
 
-test("(-) delete employees", async (t) => {
+test.serial("(-) delete employees", async (t) => {
   const targetEmployee = await findCoworker(t, currentUser, Role.Employee);
 
   const response = await request(stores)
@@ -128,7 +131,7 @@ test("(-) delete employees", async (t) => {
   t.is(response.status, 403);
 });
 
-test("(-) update employees", async (t) => {
+test.serial("(-) update employees", async (t) => {
   const targetEmployee = await findCoworker(t, currentUser, Role.Employee);
 
   const updateOne = { name: "Updated Name" };

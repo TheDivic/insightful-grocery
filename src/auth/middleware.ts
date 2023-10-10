@@ -27,7 +27,7 @@ const authorizationMiddleware = (
   if (
     !req.auth?.nodePath ||
     (req.params?.storePath &&
-      !req.auth.nodePath.startsWith(req.params.storePath))
+      !req.params.storePath.startsWith(req.auth.nodePath))
   ) {
     return res.status(403).send({ error: "Unauthorized to access this node" });
   }
