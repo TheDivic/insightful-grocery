@@ -12,12 +12,17 @@ class StoreRouter {
     private employees: IEmployeeRepo = new EmployeeMongoRepo(),
     public router = express.Router()
   ) {
+    // The following routing logic is ugly because I have to pass the authorization middleware to each endpoint.
+    // The reason is that the middleware accesses a route parameter (:storePath) and that is undefined if you
+    // try to use the middleware globally (e.g. this.router.use(authorizationMiddleware)).
+
+    // List all managers and create a new manager
     this.router
-      .use(authorizationMiddleware)
       .route("/:storePath/managers")
       .get(authorizationMiddleware, managerMiddleware, this.handleGetManagers)
       .post(authorizationMiddleware, managerMiddleware, this.handlePostManager);
 
+    // CRUD operations on a single manager
     this.router
       .route("/:storePath/managers/:managerId")
       .get(authorizationMiddleware, managerMiddleware, this.handleGetManager)
@@ -32,6 +37,7 @@ class StoreRouter {
         this.handleUpdateManager
       );
 
+    // List all employees or create a new employee
     this.router
       .route("/:storePath/employees")
       .get(authorizationMiddleware, this.handleGetEmployees)
@@ -41,6 +47,7 @@ class StoreRouter {
         this.handlePostEmployee
       );
 
+    // CRUD operations on a single manager
     this.router
       .route("/:storePath/employees/:employeeId")
       .get(authorizationMiddleware, this.handleGetEmployee)
@@ -57,6 +64,7 @@ class StoreRouter {
   }
 
   private handlePostManager = async (req: Request, res: Response) => {
+    console.log(`storePath=${req.params.storePath}`);
     const targetStore = await this.stores.get(req.params.storePath);
     if (targetStore == null) {
       return res
@@ -127,27 +135,6 @@ class StoreRouter {
 
   // TODO: implement get by employeeId
   private handleGetEmployees = async (req: JWTRequest, res: Response) => {
-    if (req.params.employeeId) {
-      try {
-        const manager = await this.employees.employee(req.params.employeeId);
-        if (!manager) {
-          return res
-            .status(404)
-            .json({ error: `no employee with id=${req.params.employeeId}` });
-        }
-
-        if (manager.nodePath !== req.params.storePath) {
-          return res.status(404).json({
-            error: `no employee with id=${req.params.employeeId} at store=${req.params.storePath}`,
-          });
-        }
-        return res.json(manager);
-      } catch (err) {
-        console.error(err);
-        return res.sendStatus(500);
-      }
-    }
-
     const deep = req.query.deep
       ? (req.query.deep as unknown as boolean)
       : undefined;
