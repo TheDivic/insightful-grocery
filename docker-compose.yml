@@ -5,8 +5,15 @@ services:
     restart: always
     ports:
       - "27017:27017"
+
   insightful-grocery:
     build: .
     depends_on:
       - mongodb
     restart: always
+    environment:
+      - JWT_SECRET=SUPER_SECRET
+      - MONGO_URL=mongodb://mongodb:27017/grocery-stores
+      - GROCERY_PORT=8080
+    ports:
+      - "8080:8080"
