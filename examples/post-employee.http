@@ -1,0 +1,11 @@
+POST /stores/srbija.grad-beograd.vracar/employees HTTP/1.1
+Accept-Encoding: gzip, deflate
+Connection: keep-alive
+Content-Length: 57
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJfaWQiOiI2NTIyZGRiZWY3OTE4MzVlNGMwYjQxYjkiLCJuYW1lIjoiRGFuZSBLdWIiLCJlbWFpbCI6IkRhbmVfS3ViQGdtYWlsLmNvbSIsIm5vZGVQYXRoIjoic3JiaWphLmdyYWQtYmVvZ3JhZC52cmFjYXIiLCJyb2xlIjoibWFuYWdlciJ9.cwspYBMLv7MjgWR3VlcMvdSQi7db4qllW-k_tKyxad0
+User-Agent: HTTPie/3.2.2
+Accept: application/json, */*;q=0.5
+Content-Type: application/json
+Host: 127.0.0.1:8080
+
+{"email": "new.employee@gmail.com", "name": "New Employee"}

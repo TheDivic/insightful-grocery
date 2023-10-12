@@ -1,0 +1,9 @@
+DELETE /stores/srbija.grad-beograd.vracar/managers/6527f8d8516a3f73542d199d HTTP/1.1
+Accept-Encoding: gzip, deflate
+Accept: */*
+Connection: keep-alive
+Content-Length: 0
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJfaWQiOiI2NTIyZGRiZWY3OTE4MzVlNGMwYjQxYjkiLCJuYW1lIjoiRGFuZSBLdWIiLCJlbWFpbCI6IkRhbmVfS3ViQGdtYWlsLmNvbSIsIm5vZGVQYXRoIjoic3JiaWphLmdyYWQtYmVvZ3JhZC52cmFjYXIiLCJyb2xlIjoibWFuYWdlciJ9.cwspYBMLv7MjgWR3VlcMvdSQi7db4qllW-k_tKyxad0
+User-Agent: HTTPie/3.2.2
+Host: 127.0.0.1:8080
+

@@ -1,0 +1,8 @@
+DELETE /stores/srbija.grad-beograd.vracar/employees/6527f58bf51169d9a5f14f91 HTTP/1.1
+Accept-Encoding: gzip, deflate
+Accept: */*
+Connection: keep-alive
+Content-Length: 0
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJfaWQiOiI2NTIyZGRiZWY3OTE4MzVlNGMwYjQxYjkiLCJuYW1lIjoiRGFuZSBLdWIiLCJlbWFpbCI6IkRhbmVfS3ViQGdtYWlsLmNvbSIsIm5vZGVQYXRoIjoic3JiaWphLmdyYWQtYmVvZ3JhZC52cmFjYXIiLCJyb2xlIjoibWFuYWdlciJ9.cwspYBMLv7MjgWR3VlcMvdSQi7db4qllW-k_tKyxad0
+User-Agent: HTTPie/3.2.2
+Host: 127.0.0.1:8080
