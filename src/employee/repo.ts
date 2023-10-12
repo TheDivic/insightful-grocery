@@ -1,26 +1,55 @@
-import { ICreateEmployee, IEmployeeRepo } from "../store/router";
+import { IPostEmployee } from "./types";
 import { IEmployee, Employee, Role } from "./employee";
 
+// IStoreRepo is the interface for the Employee DB layer.
+// The actual MongoImplementation is below, but prefer referencing the interface,
+// because then we can change the implementation without touching the actual interface.
+interface IEmployeeRepo {
+  managers(storePath: string, deep?: boolean): Promise<IEmployee[]>;
+  manager(storePath: string, id: string): Promise<IEmployee | null>;
+  employees(storePath: string, deep?: boolean): Promise<IEmployee[]>;
+  employee(storePath: string, id: string): Promise<IEmployee | null>;
+  create(storePath: string, employee: IPostEmployee): Promise<IEmployee>;
+  delete(storePath: string, id: string, role: Role): Promise<boolean>;
+  update(
+    storePath: string,
+    id: string,
+    role: Role,
+    fields: Partial<IPostEmployee>
+  ): Promise<IEmployee | null>;
+}
+
 class MongoRepo implements IEmployeeRepo {
-  async get(): Promise<IEmployee[]> {
-    const employees = await Employee.find();
-    return employees;
+  async create(storePath: string, employee: IPostEmployee): Promise<IEmployee> {
+    return Employee.create({
+      nodePath: storePath,
+      ...employee,
+    });
   }
 
-  async create(employee: ICreateEmployee): Promise<IEmployee> {
-    const created = await Employee.create(employee);
-    return created;
-  }
+  async delete(storePath: string, id: string, role: Role): Promise<boolean> {
+    const what = await Employee.deleteOne({
+      _id: id,
+      nodePath: storePath,
+      role,
+    });
 
-  async delete(id: string): Promise<void> {
-    await Employee.deleteOne({ _id: id });
+    return what.deletedCount > 0;
   }
 
   async update(
+    storePath: string,
     id: string,
-    fields: Partial<ICreateEmployee>
+    role: Role,
+    fields: Partial<IPostEmployee>
   ): Promise<IEmployee | null> {
-    return Employee.findByIdAndUpdate(id, fields, { new: true });
+    return Employee.findOneAndUpdate(
+      { _id: id, nodePath: storePath, role: role },
+      fields,
+      {
+        new: true,
+      }
+    );
   }
 
   async managers(path: string, deep?: boolean): Promise<IEmployee[]> {
@@ -41,13 +70,21 @@ class MongoRepo implements IEmployeeRepo {
     return Employee.find(filter);
   }
 
-  async manager(id: string): Promise<IEmployee | null> {
-    return Employee.findOne({ _id: id, role: Role.Manager });
+  async manager(storePath: string, id: string): Promise<IEmployee | null> {
+    return Employee.findOne({
+      _id: id,
+      nodePath: storePath,
+      role: Role.Manager,
+    });
   }
 
-  async employee(id: string): Promise<IEmployee | null> {
-    return Employee.findOne({ _id: id, role: Role.Employee });
+  async employee(storePath: string, id: string): Promise<IEmployee | null> {
+    return Employee.findOne({
+      _id: id,
+      nodePath: storePath,
+      role: Role.Employee,
+    });
   }
 }
 
-export { MongoRepo };
+export { MongoRepo, IEmployeeRepo };

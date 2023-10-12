@@ -4,7 +4,7 @@ Use it like this: ts-node employee-gen.ts > employees.json
 */
 import { IEmployee, Role } from "../employee/employee";
 import { faker } from "@faker-js/faker";
-import { ICreateEmployee } from "../store/router";
+import { IPostEmployee } from "../employee/types";
 
 const nodes = [
   "/srbija",
@@ -32,9 +32,11 @@ const nodes = [
   "/srbija/grad-beograd/vracar/crveni-krst/radnja-9",
 ];
 
-const employees: ICreateEmployee[] = [];
+type IEmployeeNoId = Omit<IEmployee, "_id">;
 
-const generateEmployee = (path: string, role: Role): ICreateEmployee => {
+const employees: IEmployeeNoId[] = [];
+
+const generateEmployee = (path: string, role: Role): IEmployeeNoId => {
   const firstName = faker.person.firstName();
   const lastName = faker.person.lastName();
   const email = faker.internet.email({ firstName, lastName });

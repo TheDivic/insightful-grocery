@@ -1,6 +1,6 @@
 import test from "ava";
 import express from "express";
-import { IPostEmployee, StoreRouter } from "../store/router";
+import { StoreRouter } from "../store/router";
 import request from "supertest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { IEmployee, Role } from "../employee/employee";
@@ -11,6 +11,7 @@ import {
   findCoworker,
   populateTestDB,
 } from "./_utils";
+import { IPostEmployee } from "../employee/types";
 
 const AUTHORIZED_STORE = "srbija.grad-beograd.vracar";
 const UNAUTHORIZED_STORE = "srbija.vojvodina.severnobacki-okrug";

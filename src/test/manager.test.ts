@@ -1,6 +1,6 @@
 import test from "ava";
 import express from "express";
-import { IPostEmployee, StoreRouter } from "../store/router";
+import { StoreRouter } from "../store/router";
 import request from "supertest";
 import { MongoMemoryServer } from "mongodb-memory-server";
 import { IEmployee, Role } from "../employee/employee";
@@ -12,6 +12,8 @@ import {
   findDescendant,
   populateTestDB,
 } from "./_utils";
+import { IPostEmployee } from "../employee/types";
+import { handleErrors } from "../store/errors";
 
 // Test constants
 const AUTHORIZED_STORE = "srbija.grad-beograd.vracar";
@@ -38,7 +40,8 @@ test.before("setup", async () => {
   api = express()
     .use(authenticationMiddleware(JWT_SECRET)) // add auth middleware because it's usually set on the app root level
     .use(express.json())
-    .use(new StoreRouter().router);
+    .use(new StoreRouter().router)
+    .use(handleErrors);
 });
 
 test.after("teardown", async () => {
@@ -52,7 +55,7 @@ test("(+) retrieve managers for one node", async (t) => {
   t.is(response.status, 200);
 
   // check if it returned a non-empty array
-  t.assert(Array.isArray(response.body));
+  t.assert(Array.isArray(response.body), "didn't receive an array of managers");
   const res: IEmployee[] = response.body;
   t.not(res.length, 0);
 
@@ -106,6 +109,14 @@ test("(+) retrieve a manager by ID", async (t) => {
 
   const res: IEmployee = response.body;
   t.is(res._id.toString(), coworker._id.toString());
+});
+
+test("(-) retrieve a manager using a non-existing ID", async (t) => {
+  const response = await request(api)
+    .get(`/${AUTHORIZED_STORE}/managers/6522ddbef791835e4c0b1234`)
+    .set("Authorization", `Bearer ${testJWT}`);
+
+  t.is(response.status, 404);
 });
 
 test("(+) retrieve employees for one node", async (t) => {
@@ -235,7 +246,7 @@ test.serial("(+) create employee", async (t) => {
 test.serial("(+) delete employee", async (t) => {
   const targetEmployee = await findDescendant(t, currentUser, Role.Employee);
   const response = await request(api)
-    .delete(`/${AUTHORIZED_STORE}/employees/${targetEmployee!._id}`)
+    .delete(`/${targetEmployee.nodePath}/employees/${targetEmployee!._id}`)
     .set("Authorization", `Bearer ${testJWT}`);
 
   t.is(response.status, 204);
@@ -247,7 +258,7 @@ test.serial("(+) update manager", async (t) => {
   // update just one property
   const updateOne = { name: "Updated Name" };
   let response = await request(api)
-    .put(`/${AUTHORIZED_STORE}/managers/${targetManager!._id}`)
+    .put(`/${targetManager.nodePath}/managers/${targetManager!._id}`)
     .set("Authorization", `Bearer ${testJWT}`)
     .send(updateOne);
   t.is(response.status, 200);
@@ -266,7 +277,7 @@ test.serial("(+) update manager", async (t) => {
   };
 
   response = await request(api)
-    .put(`/${AUTHORIZED_STORE}/managers/${targetManager!._id}`)
+    .put(`/${targetManager.nodePath}/managers/${targetManager!._id}`)
     .set("Authorization", `Bearer ${testJWT}`)
     .send(updateMultiple);
   t.is(response.status, 200);
@@ -284,7 +295,7 @@ test.serial("(+) update employee", async (t) => {
   // update just one property
   const updateOne = { name: "Updated Name" };
   let response = await request(api)
-    .put(`/${AUTHORIZED_STORE}/employees/${targetEmployee!._id}`)
+    .put(`/${targetEmployee.nodePath}/employees/${targetEmployee!._id}`)
     .set("Authorization", `Bearer ${testJWT}`)
     .send(updateOne);
   t.is(response.status, 200);
@@ -303,7 +314,7 @@ test.serial("(+) update employee", async (t) => {
   };
 
   response = await request(api)
-    .put(`/${AUTHORIZED_STORE}/employees/${targetEmployee!._id}`)
+    .put(`/${targetEmployee.nodePath}/employees/${targetEmployee!._id}`)
     .set("Authorization", `Bearer ${testJWT}`)
     .send(updateMultiple);
   t.is(response.status, 200);

@@ -1,8 +1,8 @@
 import { Schema, model } from "mongoose";
 
 interface IStore {
-  name: string;
-  path: string;
+  name: string; // store name
+  path: string; // period delimited store path
 }
 
 const storeSchema = new Schema<IStore>({

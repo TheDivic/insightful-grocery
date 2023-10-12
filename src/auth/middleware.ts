@@ -1,8 +1,11 @@
 import { NextFunction, Response } from "express";
 import { Request as JWTRequest, expressjwt as jwt } from "express-jwt";
 import { Role } from "../employee/employee";
+import dotenv from "dotenv";
 
-const JWT_SECRET = process.env.GROCERY_PORT;
+dotenv.config();
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 const authenticationMiddleware = (secret = JWT_SECRET) => {
   return jwt({ secret: secret!, algorithms: ["HS256"] });
@@ -29,9 +32,10 @@ const authorizationMiddleware = (
     (req.params?.storePath &&
       !req.params.storePath.startsWith(req.auth.nodePath))
   ) {
-    return res.status(403).send({ error: "Unauthorized to access this node" });
+    res.status(403).send({ error: "Unauthorized to access this node" });
+  } else {
+    next();
   }
-  next();
 };
 
 export { authenticationMiddleware, managerMiddleware, authorizationMiddleware };

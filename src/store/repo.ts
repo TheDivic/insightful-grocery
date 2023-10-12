@@ -1,4 +1,3 @@
-import { IStoreRepo } from "./router";
 import { IStore, Store } from "./store";
 
 class MongoRepo implements IStoreRepo {
@@ -22,4 +21,12 @@ class MongoRepo implements IStoreRepo {
   }
 }
 
-export { MongoRepo };
+// IStoreRepo is the interface for the Store DB layer
+interface IStoreRepo {
+  list(): Promise<IStore[]>;
+  get(path: string): Promise<IStore | null>;
+  create(node: Pick<IStore, "name">): Promise<IStore>;
+  delete(id: string): Promise<void>;
+}
+
+export { MongoRepo, IStoreRepo };
